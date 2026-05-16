@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { getSupabase } from './lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from './context/AuthContext'
@@ -28,6 +28,7 @@ export default function Home() {
 
   // 🔐 Redirigir si no hay sesión
   useEffect(() => {
+    const supabase = getSupabase()
     if (!authLoading && !user) {
       router.replace('/login')
     }
@@ -41,9 +42,12 @@ export default function Home() {
   }, [user])
 
   const cargarTodo = async () => {
+    const supabase = getSupabase()
     try {
       setLoadingData(true)
       setError(null)
+
+      const supabase = await getSupabase()
 
       // 1. Cargar temas
       const { data: temasData, error: temasError } = await supabase
@@ -113,6 +117,7 @@ export default function Home() {
             </span>
             <button 
               onClick={async () => {
+                const supabase = await getSupabase()
                 await supabase.auth.signOut()
                 router.replace('/login')
               }}

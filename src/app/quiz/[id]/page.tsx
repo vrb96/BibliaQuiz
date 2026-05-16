@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '../../lib/supabase'
+import { getSupabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import confetti from 'canvas-confetti'
 
@@ -40,6 +40,8 @@ export default function QuizPage() {
   useEffect(() => { cargarQuiz() }, [])
 
   const cargarQuiz = async () => {
+    const supabase = getSupabase()
+
     const { data: secData } = await supabase
       .from('secciones')
       .select('tema_id, nombre')
@@ -144,6 +146,7 @@ export default function QuizPage() {
     if (user) {
       try {
         console.log('🔄 Guardando en cloud...')
+        const supabase = getSupabase()
         const { error } = await supabase
           .from('user_progress')
           .upsert({

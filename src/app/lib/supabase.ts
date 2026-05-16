@@ -1,21 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+// ✅ Función segura que nunca crashea durante el build
+export const getSupabase = (): SupabaseClient => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// ✅ Crear cliente solo si hay URL (si no, objeto vacío que no crashea)
-export const supabase = supabaseUrl 
-  ? createClient(supabaseUrl, supabaseKey)
-  : {
+  // Si no hay variables (build/server), retornar mock seguro
+  if (!url || !key) {
+    return {
       auth: {
-        getSession: async () => ({ session: null, error: null }),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
+        getSession: async () => ({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({
+          data: { subscription: { unsubscribe: () => {} } },
+          error: null,
+        }),
         signInWithPassword: async () => ({ data: null, error: null }),
         signUp: async () => ({ data: null, error: null }),
         signOut: async () => ({ error: null }),
       },
       from: () => ({
-        select: () => ({ eq: () => ({ order: () => ({ data: [], error: null }) }) }),
-        upsert: async () => ({ data: null, error: null }),
+        select: () => ({ eq: () => ({ order: () => ({  data: [], error: null }) }) }),
+        upsert: async () => ({  data: null, error: null }),
       }),
-    } as any
+    } as unknown as SupabaseClient
+  }
+
+  // En navegador con variables: cliente real
+  return createClient(url, key)
+}
