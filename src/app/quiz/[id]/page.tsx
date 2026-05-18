@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getSupabase } from '../../lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import confetti from 'canvas-confetti'
 
