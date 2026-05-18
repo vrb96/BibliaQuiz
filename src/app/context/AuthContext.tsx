@@ -1,6 +1,7 @@
 'use client'
+
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '../lib/supabase'
 import { Session, User } from '@supabase/supabase-js'
 
 interface AuthContextType {
@@ -20,9 +21,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // ✅ Obtener cliente SOLO en navegador, dentro del efecto
-    const supabase = getSupabase()
-    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
@@ -39,17 +37,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await getSupabase().auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
   }
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await getSupabase().auth.signUp({ email, password })
+    const { error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
   }
 
   const signOut = async () => {
-    await getSupabase().auth.signOut()
+    await supabase.auth.signOut()
   }
 
   return (

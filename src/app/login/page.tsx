@@ -1,4 +1,5 @@
 'use client'
+
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -10,16 +11,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
-      if (isLogin) await signIn(email, password)
-      else await signUp(email, password)
+      if (isLogin) {
+        await signIn(email, password)
+      } else {
+        await signUp(email, password)
+      }
       router.push('/')
     } catch (err: any) {
       setError(err.message || 'Error de autenticación')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -29,37 +37,55 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-[#0F172A] mb-6 text-center">
           {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
         </h1>
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+        
+        {error && (
+          <p className="text-red-500 text-sm mb-4 text-center bg-red-50 p-3 rounded-lg border border-red-200">
+            {error}
+          </p>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#0F172A] mb-1">Correo electrónico</label>
+            <input 
+              type="email" 
+              placeholder="tu@email.com" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              required
+              className="w-full p-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent text-[#0F172A] placeholder:text-gray-400" 
+            />
+          </div>
           
-          {/* ✅ CAMBIO 1: Agregado text-[#0F172A] + placeholder:text-gray-400 */}
-          <input 
-            type="email" 
-            placeholder="Correo" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            required
-            className="w-full p-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:border-[#4F46E5] text-[#0F172A] placeholder:text-gray-400" 
-          />
+          <div>
+            <label className="block text-sm font-medium text-[#0F172A] mb-1">Contraseña</label>
+            <input 
+              type="password" 
+              placeholder="••••••••" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required
+              minLength={6}
+              className="w-full p-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent text-[#0F172A] placeholder:text-gray-400" 
+            />
+          </div>
           
-          {/* ✅ CAMBIO 2: Agregado text-[#0F172A] + placeholder:text-gray-400 */}
-          <input 
-            type="password" 
-            placeholder="Contraseña" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            required
-            className="w-full p-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:border-[#4F46E5] text-[#0F172A] placeholder:text-gray-400" 
-          />
-          
-          <button type="submit" className="w-full bg-[#4F46E5] text-white py-3 rounded-xl font-bold hover:bg-[#4338CA] transition">
-            {isLogin ? 'Entrar' : 'Registrarse'}
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-[#4F46E5] text-white py-3 rounded-xl font-bold hover:bg-[#4338CA] transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Procesando...' : (isLogin ? 'Entrar' : 'Registrarse')}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-[#64748B]">
+        
+        <p className="mt-6 text-center text-sm text-[#64748B]">
           {isLogin ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
-          <button onClick={() => setIsLogin(!isLogin)} className="text-[#4F46E5] font-medium hover:underline">
-            {isLogin ? 'Regístrate' : 'Inicia sesión'}
+          <button 
+            onClick={() => { setIsLogin(!isLogin); setError('') }} 
+            className="text-[#4F46E5] font-medium hover:underline focus:outline-none"
+          >
+            {isLogin ? 'Regístrate gratis' : 'Inicia sesión'}
           </button>
         </p>
       </div>
