@@ -37,8 +37,12 @@ export default function LoginPage() {
         
         {/* 🔹 Logo y Nombre de la App */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-20 h-20 bg-[#4F46E5] rounded-full flex items-center justify-center text-4xl mb-4 shadow-lg shadow-indigo-200">
-            📖
+          <div className="w-24 h-24 mb-4 overflow-hidden rounded-full shadow-lg border-4 border-white">
+            <img 
+              src="/logo.png" 
+              alt="Logo Biblia Quiz" 
+              className="w-full h-full object-cover" 
+            />
           </div>
           <h1 className="text-2xl font-bold text-[#0F172A]">Biblia Quiz</h1>
           <p className="text-sm text-[#64748B] mt-1">Aprende, practica y crece en la fe</p>

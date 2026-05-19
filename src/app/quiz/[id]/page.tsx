@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import confetti from 'canvas-confetti'
+import { playSound } from '@/utils/soundManager'
 
 interface Pregunta {
   id: number
@@ -34,6 +35,9 @@ export default function QuizPage() {
   const [temaId, setTemaId] = useState(0)
   const [seccionNombre, setSeccionNombre] = useState('')
   const [tiempoRestante, setTiempoRestante] = useState(TIEMPO_POR_PREGUNTA)
+  
+  // ✅ NUEVO: Controla la pantalla de resultados
+  const [mostrarResultados, setMostrarResultados] = useState(false)
 
   useEffect(() => {
     cargarQuiz()
@@ -65,10 +69,9 @@ export default function QuizPage() {
     setLoading(false)
   }
 
-  // ✅ CORRECCIÓN: Se eliminó 'respondida' de las dependencias.
-  // Al cambiar currentIndex, este efecto se dispara, limpia estados y prepara la nueva pregunta.
+  // ✅ CORRECCIÓN: Se agregó !mostrarResultados para detener el timer al terminar
   useEffect(() => {
-    if (!loading && preguntas.length > 0 && currentIndex < preguntas.length) {
+    if (!loading && preguntas.length > 0 && currentIndex < preguntas.length && !mostrarResultados) {
       setRespondida(false)
       setSelectedOption(null)
       prepararPregunta()
@@ -77,7 +80,7 @@ export default function QuizPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [currentIndex, preguntas, loading])
+  }, [currentIndex, preguntas, loading, mostrarResultados])
 
   const prepararPregunta = () => {
     const pregunta = preguntas[currentIndex]
@@ -113,6 +116,9 @@ export default function QuizPage() {
 
     if (esCorrecta) {
       setAciertos(prev => prev + 1)
+      playSound('correct')
+    } else {
+      playSound('incorrect')
     }
   }
 
@@ -124,7 +130,10 @@ export default function QuizPage() {
     }
   }
 
+  // ✅ NUEVA LÓGICA: Guarda, muestra resultados y NO redirige automáticamente
   const finalizarQuiz = async () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    
     const total = preguntas.length
     const porcentaje = Math.round((aciertos / total) * 100)
     const aprobado = porcentaje >= 70
@@ -143,6 +152,7 @@ export default function QuizPage() {
     }
 
     if (aprobado) {
+      playSound('success')
       confetti({
         particleCount: 150,
         spread: 70,
@@ -151,7 +161,8 @@ export default function QuizPage() {
       })
     }
 
-    setTimeout(() => router.push(`/tema/${temaId}`), 2000)
+    // ✅ Muestra pantalla de resultados en lugar de redirigir
+    setMostrarResultados(true)
   }
 
   if (loading || !user) {
@@ -178,6 +189,41 @@ export default function QuizPage() {
     )
   }
 
+  // ✅ PANTALLA DE RESULTADOS (Reemplaza la redirección automática)
+  if (mostrarResultados) {
+    const total = preguntas.length
+    const porcentaje = Math.round((aciertos / total) * 100)
+    const aprobado = porcentaje >= 70
+
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] px-4 py-6 flex flex-col items-center justify-center">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border max-w-md w-full text-center">
+          <div className="text-5xl mb-4">{aprobado ? '' : '📖'}</div>
+          <h2 className="text-2xl font-bold text-[#0F172A] mb-2">
+            {aprobado ? '¡Sección Completada!' : '¡Sigue Practicando!'}
+          </h2>
+          <p className="text-[#64748B] mb-6">
+            {aprobado
+              ? 'Has aprobado con éxito. ¡Excelente trabajo!'
+              : 'Necesitas 70% para aprobar. ¡Inténtalo de nuevo!'}
+          </p>
+
+          <div className="bg-[#F8FAFC] rounded-xl p-4 mb-6 border border-[#E2E8F0]">
+            <div className="text-3xl font-bold text-[#4F46E5] mb-1">{porcentaje}%</div>
+            <div className="text-sm text-[#64748B]">{aciertos} de {total} correctas</div>
+          </div>
+
+          <button
+            onClick={() => router.push(`/tema/${temaId}`)}
+            className="w-full bg-[#4F46E5] text-white py-3 rounded-xl font-bold hover:bg-[#4338CA] transition shadow-md active:scale-[0.98]"
+          >
+            Volver a Secciones
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (currentIndex >= preguntas.length) return null
 
   const preguntaActual = preguntas[currentIndex]
@@ -188,7 +234,7 @@ export default function QuizPage() {
       <div className="w-full max-w-4xl">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <button onClick={() => router.back()} className="p-2 bg-white rounded-full shadow-sm border border-[#E2E8F0] hover:bg-gray-50 transition">⬅️</button>
+          <button onClick={() => router.back()} className="p-2 bg-white rounded-full shadow-sm border border-[#E2E8F0] hover:bg-gray-50 transition">️</button>
           <div className="text-right">
             <p className="text-sm font-medium text-[#0F172A] truncate max-w-[200px] md:max-w-xs">{seccionNombre}</p>
             <p className="text-xs text-[#64748B]">{currentIndex + 1} / {preguntas.length} • ✅ {aciertos}</p>
@@ -197,7 +243,7 @@ export default function QuizPage() {
 
         {/* Timer */}
         <div className="flex items-center gap-3 mb-4">
-          <span className={`text-sm font-bold transition-colors ${tiempoRestante <= 3 ? 'text-[#EF4444]' : 'text-[#4F46E5]'}`}>️ {tiempoRestante}s</span>
+          <span className={`text-sm font-bold transition-colors ${tiempoRestante <= 3 ? 'text-[#EF4444]' : 'text-[#4F46E5]'}`}>⏱️ {tiempoRestante}s</span>
           <div className="flex-1 h-2 bg-[#E2E8F0] rounded-full overflow-hidden">
             <div className={`h-full rounded-full transition-all duration-1000 ease-linear ${tiempoRestante <= 3 ? 'bg-[#EF4444]' : 'bg-[#4F46E5]'}`} style={{ width: `${(tiempoRestante / TIEMPO_POR_PREGUNTA) * 100}%` }} />
           </div>
