@@ -12,12 +12,20 @@ interface Tema {
   descripcion: string
 }
 
+interface UserStats {
+  xp: number
+  level: number
+  streak: number
+  badges: string[]
+}
+
 export default function Home() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [temas, setTemas] = useState<Tema[]>([])
   const [loading, setLoading] = useState(true)
   const [progreso, setProgreso] = useState({ completadas: 0, porcentaje: 0 })
+  const [stats, setStats] = useState<UserStats | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -33,6 +41,7 @@ export default function Home() {
 
   const cargarTodo = async () => {
     try {
+      // 1. Cargar temas
       const { data: temasData } = await supabase
         .from('temas')
         .select('id, nombre, descripcion')
@@ -41,6 +50,7 @@ export default function Home() {
       setTemas(temasData || [])
 
       if (user) {
+        // 2. Cargar progreso
         const { data: prog } = await supabase
           .from('user_progress')
           .select('completado')
@@ -58,6 +68,24 @@ export default function Home() {
           completadas,
           porcentaje: Math.round((completadas / totalSecciones) * 100)
         })
+
+        // 3. Cargar stats de gamificación (al mismo nivel, NO anidado)
+        const { data: statsData } = await supabase
+          .from('user_stats')
+          .select('xp, level, streak, badges')
+          .eq('user_id', user.id)
+          .single()
+        
+        if (statsData) {
+          // ✅ Parseo seguro para badges (jsonb → string[])
+          const badgesArray = Array.isArray(statsData.badges) ? statsData.badges : []
+          setStats({
+            xp: statsData.xp || 0,
+            level: statsData.level || 1,
+            streak: statsData.streak || 0,
+            badges: badgesArray
+          })
+        }
       }
     } catch (error) {
       console.error('Error cargando datos:', error)
@@ -103,22 +131,38 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats con Gamificación */}
         <div className="grid grid-cols-3 gap-4 mb-8 md:mb-12 max-w-3xl mx-auto">
-          <div className="bg-white rounded-2xl p-4 md:p-6 text-center shadow-sm border border-[#E2E8F0]">
-            <div className="text-2xl md:text-3xl mb-1">📚</div>
-            <div className="text-xl md:text-2xl font-bold text-[#0F172A]">{temas.length}</div>
-            <div className="text-xs md:text-sm text-[#94A3B8]">Temas</div>
+          <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-[#E2E8F0]">
+            <div className="text-2xl mb-1">🔥</div>
+            <div className="text-xl font-bold text-[#0F172A]">{stats ? stats.streak : 0}</div>
+            <div className="text-xs text-[#94A3B8]">Racha</div>
           </div>
-          <div className="bg-white rounded-2xl p-4 md:p-6 text-center shadow-sm border border-[#E2E8F0]">
-            <div className="text-2xl md:text-3xl mb-1">🎯</div>
-            <div className="text-xl md:text-2xl font-bold text-[#0F172A]">{progreso.porcentaje}%</div>
-            <div className="text-xs md:text-sm text-[#94A3B8]">Progreso</div>
+          
+          <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-[#E2E8F0]">
+            <div className="text-2xl mb-1">⭐</div>
+            <div className="text-xl font-bold text-[#0F172A]">Nv. {stats ? stats.level : 1}</div>
+            <div className="text-xs text-[#94A3B8]">Nivel</div>
           </div>
-          <div className="bg-white rounded-2xl p-4 md:p-6 text-center shadow-sm border border-[#E2E8F0]">
-            <div className="text-2xl md:text-3xl mb-1">✅</div>
-            <div className="text-xl md:text-2xl font-bold text-[#0F172A]">{progreso.completadas}</div>
-            <div className="text-xs md:text-sm text-[#94A3B8]">Completadas</div>
+          
+          <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-[#E2E8F0]">
+            <div className="text-2xl mb-1">🏅</div>
+            <div className="text-xl font-bold text-[#0F172A]">{stats ? stats.badges.length : 0}</div>
+            <div className="text-xs text-[#94A3B8]">Insignias</div>
+          </div>
+        </div>
+
+        {/* Barra de XP al siguiente nivel */}
+        <div className="max-w-3xl mx-auto mb-8">
+          <div className="flex justify-between text-xs text-[#64748B] mb-1">
+            <span>XP: {stats ? stats.xp : 0}</span>
+            <span>Siguiente: {(stats ? stats.level : 1) * 100}</span>
+          </div>
+          <div className="w-full bg-[#E2E8F0] rounded-full h-3 overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-[#4F46E5] to-[#10B981] rounded-full transition-all duration-500"
+              style={{ width: `${stats ? (stats.xp % 100) : 0}%` }}
+            />
           </div>
         </div>
 

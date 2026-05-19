@@ -15,6 +15,15 @@ interface Pregunta {
   explicacion: string
 }
 
+// ✅ Interfaz para stats de gamificación
+interface UserStats {
+  xp: number
+  level: number
+  streak: number
+  badges: string[]
+  last_played?: string
+}
+
 const TIEMPO_POR_PREGUNTA = 15
 
 export default function QuizPage() {
@@ -36,7 +45,7 @@ export default function QuizPage() {
   const [seccionNombre, setSeccionNombre] = useState('')
   const [tiempoRestante, setTiempoRestante] = useState(TIEMPO_POR_PREGUNTA)
   
-  // ✅ NUEVO: Controla la pantalla de resultados
+  // ✅ Estado para pantalla de resultados
   const [mostrarResultados, setMostrarResultados] = useState(false)
 
   useEffect(() => {
@@ -130,6 +139,71 @@ export default function QuizPage() {
     }
   }
 
+  // ✅ Actualizar XP, racha e insignias en Supabase (con logs)
+  const actualizarGamificacion = async (esPrimeraVez: boolean, porcentaje: number) => {
+    if (!user) {
+      console.log("❌ Gamification: No hay usuario logueado")
+      return
+    }
+
+    console.log("🔄 Gamification: Iniciando guardado...", { aciertos, esPrimeraVez, porcentaje })
+
+    const hoy = new Date().toISOString().split('T')[0]
+    const xpGanado = aciertos * 10
+
+    try {
+      // 1. Obtener stats actuales
+      const { data: stats, error: selectError } = await supabase
+        .from('user_stats')
+        .select('xp, level, streak, badges, last_played')
+        .eq('user_id', user.id)
+        .single()
+
+      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = Not Found (normal si es primera vez)
+        console.error("❌ Gamification Error al leer stats:", selectError)
+        return
+      }
+
+      // 2. Lógica de racha
+      let nuevaRacha = 1
+      if (stats?.last_played) {
+        const ultimo = new Date(stats.last_played)
+        const diffDias = Math.floor((new Date(hoy).getTime() - ultimo.getTime()) / (1000 * 60 * 60 * 24))
+        if (diffDias === 0) nuevaRacha = stats.streak
+        else if (diffDias === 1) nuevaRacha = stats.streak + 1
+      }
+
+      // 3. Insignias
+      const nuevasInsignias: string[] = []
+      if (esPrimeraVez) nuevasInsignias.push('Primer Quiz')
+      if (nuevaRacha >= 7) nuevasInsignias.push('🔥 Racha 7 días')
+      if (porcentaje === 100) nuevasInsignias.push('💯 Perfección')
+
+      const badgesActuales = Array.isArray(stats?.badges) ? stats.badges : []
+      const xpActual = stats?.xp ?? 0
+
+      // 4. Guardar en Supabase
+      const { error: upsertError } = await supabase.from('user_stats').upsert({
+        user_id: user.id,
+        xp: xpActual + xpGanado,
+        level: Math.floor((xpActual + xpGanado) / 100) + 1,
+        streak: nuevaRacha,
+        last_played: hoy,
+        badges: [...new Set([...badgesActuales, ...nuevasInsignias])],
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+
+      if (upsertError) {
+        console.error("❌ Gamification Error al guardar:", upsertError)
+      } else {
+        console.log("✅ Gamification: Guardado exitoso. XP:", xpActual + xpGanado)
+      }
+
+    } catch (err) {
+      console.error("❌ Gamification Excepción inesperada:", err)
+    }
+  }
+
   // ✅ NUEVA LÓGICA: Guarda, muestra resultados y NO redirige automáticamente
   const finalizarQuiz = async () => {
     if (timerRef.current) clearInterval(timerRef.current)
@@ -139,6 +213,7 @@ export default function QuizPage() {
     const aprobado = porcentaje >= 70
 
     if (user) {
+      // Guardar progreso del tema
       await supabase.from('user_progress').upsert({
         user_id: user.id,
         tema_id: temaId,
@@ -149,6 +224,9 @@ export default function QuizPage() {
         precision: porcentaje,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,seccion_id' })
+
+      // Actualizar gamificación
+      await actualizarGamificacion(!aprobado, porcentaje)
     }
 
     if (aprobado) {
@@ -234,7 +312,7 @@ export default function QuizPage() {
       <div className="w-full max-w-4xl">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <button onClick={() => router.back()} className="p-2 bg-white rounded-full shadow-sm border border-[#E2E8F0] hover:bg-gray-50 transition">️</button>
+          <button onClick={() => router.back()} className="p-2 bg-white rounded-full shadow-sm border border-[#E2E8F0] hover:bg-gray-50 transition">⬅️</button>
           <div className="text-right">
             <p className="text-sm font-medium text-[#0F172A] truncate max-w-[200px] md:max-w-xs">{seccionNombre}</p>
             <p className="text-xs text-[#64748B]">{currentIndex + 1} / {preguntas.length} • ✅ {aciertos}</p>
