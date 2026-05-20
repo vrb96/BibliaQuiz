@@ -204,7 +204,7 @@ export default function QuizPage() {
     }
   }
 
-  // ✅ NUEVA LÓGICA: Guarda, muestra resultados y NO redirige automáticamente
+    // ✅ NUEVA LÓGICA: Muestra resultados YA, guarda en background
   const finalizarQuiz = async () => {
     if (timerRef.current) clearInterval(timerRef.current)
     
@@ -213,8 +213,8 @@ export default function QuizPage() {
     const aprobado = porcentaje >= 70
 
     if (user) {
-      // Guardar progreso del tema
-      await supabase.from('user_progress').upsert({
+      // 🔹 Guardar progreso (sin await para no bloquear)
+      supabase.from('user_progress').upsert({
         user_id: user.id,
         tema_id: temaId,
         seccion_id: seccionId,
@@ -224,11 +224,16 @@ export default function QuizPage() {
         precision: porcentaje,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id,seccion_id' })
+      .then(({ error }) => {
+        if (error) console.error("Error guardando progreso:", error)
+        else console.log("✅ Progreso guardado")
+      })
 
-      // Actualizar gamificación
-      await actualizarGamificacion(!aprobado, porcentaje)
+      // 🔹 Actualizar gamificación (sin await)
+      actualizarGamificacion(!aprobado, porcentaje)
     }
 
+    // 🎉 Efectos visuales (se ejecutan inmediatamente)
     if (aprobado) {
       playSound('success')
       confetti({
@@ -239,7 +244,7 @@ export default function QuizPage() {
       })
     }
 
-    // ✅ Muestra pantalla de resultados en lugar de redirigir
+    // ✅ Muestra resultados INMEDIATAMENTE (sin esperar a Supabase)
     setMostrarResultados(true)
   }
 
